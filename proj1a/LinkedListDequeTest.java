@@ -87,10 +87,22 @@ public class LinkedListDequeTest {
 		printTestStatus(passed);
 	}
 
+	public static void getTest() {
+		System.out.println("Running get tests.");
+		LinkedListDeque<Integer> lld1 = new LinkedListDeque<Integer>();
+		lld1.addFirst(10);
+		lld1.addLast(15);
+		lld1.addFirst(5);
+		boolean passed = (5 == lld1.getRecursive(0));
+		passed = (10 == lld1.get(1)) && passed;
+		printTestStatus(passed);
+	}
+
 	public static void main(String[] args) {
 		System.out.println("Running tests.\n");
 		emptyTest();
 		addIsEmptySizeTest();
 		addRemoveTest();
+		getTest();
 	}
 }

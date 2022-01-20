@@ -42,7 +42,7 @@ public class LinkedListDeque<T> {
         this.sentinel.prev = this.sentinel;
         this.sentinel.next = this.sentinel;
         size = 0;
-        for(int i = 0; i < other.size(); i++) {
+        for (int i = 0; i < other.size(); i++) {
             addLast((T) other.get(i));
         }
     }
@@ -105,5 +105,21 @@ public class LinkedListDeque<T> {
             cnt += 1;
         }
         return (T) ptr.value;
+    }
+
+    public T getRecursive(int index) {
+        if (index > this.size - 1 || index < 0) {
+            return null;
+        } else {
+            Node finalNode = getRecursiveHelper(0, index, this.sentinel.next);
+            return (T) finalNode.value;
+        }
+    }
+
+    private Node getRecursiveHelper(int cnt, int index, Node n) {
+        if (cnt == index) {
+            return n;
+        }
+        return getRecursiveHelper(cnt + 1, index, n.next);
     }
 }
