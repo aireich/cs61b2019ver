@@ -80,6 +80,7 @@ public class LinkedListDequeTest {
 		
 	}
 
+    /** Test if the LinkedListDeque is empty */
 	public static void emptyTest() {
 		System.out.println("Running empty test.");
 		LinkedListDeque<Integer> lld1 = new LinkedListDeque<Integer>();
@@ -87,6 +88,7 @@ public class LinkedListDequeTest {
 		printTestStatus(passed);
 	}
 
+	/**Test the get and getRecursive method*/
 	public static void getTest() {
 		System.out.println("Running get tests.");
 		LinkedListDeque<Integer> lld1 = new LinkedListDeque<Integer>();
