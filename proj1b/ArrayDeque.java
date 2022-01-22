@@ -1,7 +1,7 @@
 /**
 The second part of project 1a. This is a circular array version.
  **/
-public class ArrayDeque<T> {
+public class ArrayDeque<T> implements Deque<T>{
     /** Resize factor */
     private static final int FACTOR = 2;
 

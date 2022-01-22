@@ -71,7 +71,12 @@ public  class ArrayDequeTest {
         ad1.removeFirst();
         ad1.removeFirst();
         ad1.removeFirst();
-        ad1.removeFirst();
+        int removed1 = (int) ad1.removeFirst();
+        passed = removed1 == 25 && passed;
+        passed = ((int) ad1.get(0) == 30) && passed;
+        ad1.addLast(35);
+        int removed2 = (int) ad1.removeLast();
+        passed = removed2 == 35 && passed;
         passed = ((int) ad1.get(0) == 30) && passed;
         testPass(passed);
     }
