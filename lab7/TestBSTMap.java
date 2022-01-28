@@ -89,6 +89,7 @@ public class TestBSTMap {
         b.put("hi9", 1);
         b.put("hi10", 1);
         b.printInOrder();
+        b.inOrder();
     }
 
     public static void main(String[] args) {

@@ -4,7 +4,9 @@ import java.util.Set;
 /***A Map based on Binary Search Tree (NOT FINISHED VERSION)
  * @source (underlying idea, almost same) https://algs4.cs.princeton.edu/32bst/BST.java.html
  * @source http://www-inst.eecs.berkeley.edu//~cs61b/fa14/book2/data-structures.pdf
- * @source (printInOrder method) https://github.com/PigZhuJ/cs61b_sp19/blob/master/lab7/BSTMap.java
+ * @source (printInOrder first method) https://github.com/PigZhuJ/cs61b_sp19/blob/master/lab7/BSTMap.java
+ * @source (printInOrder second method which I should have done that) https://medium.com/javarevisited/
+ * how-to-print-nodes-of-a-binary-search-tree-in-sorted-order-8a4e52eb8856
  * @author aireich
  * */
 public class BSTMap<K extends Comparable, V> implements Map61B<K, V> {
@@ -98,7 +100,7 @@ public class BSTMap<K extends Comparable, V> implements Map61B<K, V> {
         return node;
     }
 
-    /**Print items in BSTMap in increasing order*/
+    /**Print items in BSTMap in increasing order  (The first method)*/
     public void printInOrder() {
         for (int i = 0; i < root.size; i++) {
             System.out.println(getNode(i).key);
@@ -124,6 +126,21 @@ public class BSTMap<K extends Comparable, V> implements Map61B<K, V> {
         } else {
             return node;
         }
+    }
+
+
+    /**Print items in BSTMap in increasing order  (The second method) **/
+    public void inOrder() {
+        inOrder(root);
+    }
+
+    private void inOrder(Node node) {
+        if (node == null) {
+            return;
+        }
+        inOrder(node.left);
+        System.out.println(node.key);
+        inOrder(node.right);
     }
 
 
