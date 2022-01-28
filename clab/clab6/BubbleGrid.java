@@ -1,3 +1,9 @@
+/*********
+ * NOT FINISHED YET
+ * Refer to https://leetcode.com/problems/bricks-falling-when-hit/ for solutions
+ * THIS IS A HARD QUESTION!!!!!
+ */
+
 public class BubbleGrid {
     private int[][] grid;
 
@@ -13,7 +19,9 @@ public class BubbleGrid {
      * are unique, valid locations in the grid. Must be non-destructive
      * and have no side-effects to grid. */
     public int[] popBubbles(int[][] darts) {
-        // TODO
+        UnionFind u = new UnionFind(grid.length * grid[0].length);
+        int cnt = 0;
+        
         return null;
     }
 }
