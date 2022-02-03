@@ -1,6 +1,7 @@
 import java.util.NoSuchElementException;
 
-/*  @author Josh Hug, with most code created by:
+/*  @author aireich modified the averageDepth part
+ *  @author Josh Hug, with most code created by:
  *  @author Robert Sedgewick
  *  @author Kevin Wayne
  */
@@ -8,6 +9,13 @@ public class BST<Key extends Comparable<Key>> {
     /**
      * Initializes an empty BST.
      */
+
+    /** Node count of this BTS. Used in averageDepth()**/
+    private int nodeCnt;
+    /**Total depth of all nodes in this BST. Used in averageDepth()**/
+    private int totalDepth;
+
+
     public BST() {
     }
 
@@ -223,7 +231,7 @@ public class BST<Key extends Comparable<Key>> {
     }
 
     // return number of key-value pairs in BST rooted at x
-    private int size(Node x) {
+    public int size(Node x) {
         if (x == null) return 0;
         else return x.size;
     }
@@ -237,6 +245,54 @@ public class BST<Key extends Comparable<Key>> {
         else if (cmp > 0) return contains(x.right, key);
         else              return true;
     }
+
+    /**Return the size of a node whose key value is the key provided
+     * @param key the key we are looking for
+     * @return size of a node */
+    public int size(Key key) {
+        return sizeHelper(root, key);
+    }
+
+    private int sizeHelper(Node x, Key key) {
+        if (x == null) return -1;
+        int cmp = key.compareTo(x.key);
+        if      (cmp < 0) return sizeHelper(x.left, key);
+        else if (cmp > 0) return sizeHelper(x.right, key);
+        else              return x.size;
+    }
+
+   /**Calculate the average depth of this BST
+    * @return average depth**/
+    public double averageDepth() {
+        this.nodeCnt = 1;
+        this.totalDepth = 0;
+        averageDepthHelper(root,  0);
+        return  (double) totalDepth/ (double) nodeCnt;
+    }
+
+    /**private helper for averageDepth. This method will traverse all nodes in BST and accumulate
+     * nodeCnt and totalDepth.
+     * @param nodeDepth the depth for a specific node
+     * @param x node **/
+    private void averageDepthHelper(Node x,  int nodeDepth) {
+        if (x == null) {
+            return;
+        }
+        if (x.left == null && x.right == null && x!= root) {
+            nodeCnt += 1;
+            nodeDepth += 1;
+            totalDepth += nodeDepth;
+            return;
+        }
+        if (x != root) {
+            nodeCnt += 1;
+            nodeDepth += 1;
+            totalDepth += nodeDepth;
+        }
+        averageDepthHelper(x.left, nodeDepth);
+        averageDepthHelper(x.right, nodeDepth);
+    }
+
 
 
     /**
