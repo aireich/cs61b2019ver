@@ -1,3 +1,5 @@
+import java.util.Deque;
+
 /**
  * A String-like class that allows users to add and remove characters in the String
  * in constant time and have a constant-time hash function. Used for the Rabin-Karp
@@ -23,7 +25,6 @@ class RollingString{
      */
     public RollingString(String s, int length) {
         assert(s.length() == length);
-        /* FIX ME */
     }
 
     /**

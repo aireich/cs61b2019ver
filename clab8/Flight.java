@@ -1,3 +1,5 @@
+import java.util.Comparator;
+
 /**
  * Represents a flight in the Flight problem.
  */
@@ -24,4 +26,9 @@ public class Flight {
     public int passengers() {
         return passengers;
     }
+
+    public static Comparator<Integer> comp = (p1, p2) -> {
+        int diff = p1 - p2;
+        return diff;
+    };
 }
