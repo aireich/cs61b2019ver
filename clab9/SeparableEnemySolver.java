@@ -21,11 +21,71 @@ public class SeparableEnemySolver {
 
     /**
      * Returns true if input is separable, false otherwise.
+     * @source https://github.com/PigZhuJ/cs61b_sp19/blob/master/clab9/SeparableEnemySolver.java
      */
+
     public boolean isSeparable() {
-        // TODO: Fix me
-        return false;
+        HashMap<String, Integer> map = new HashMap<String, Integer>();
+        for (String label : g.labels()) {
+            if (!map.containsKey(label)) {
+                if (!isSeparableHelper(map, label, 1, label)) {
+                    return false;
+                }
+            }
+        }
+        return true;
     }
+
+    private boolean isSeparableHelper(HashMap<String, Integer> map, String current, int expectedValue, String prev) {
+        if (map.containsKey(current)) {
+            return map.get(current) == expectedValue;
+        }
+        map.put(current, expectedValue);
+        for (String neighbor : g.neighbors(current)) {
+            if (!neighbor.equals(prev)) {
+                if (!isSeparableHelper(map, neighbor, -1 * expectedValue, current)) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+//    public boolean isSeparable() {
+//        String start = findCycle();
+//        int cnt = isSeparableHelper(new HashSet<String >(), start, 0, null);
+//        if (cnt % 2 != 0 ) {
+//            return false;
+//        }
+//        return true;
+//    }
+//
+//    private int isSeparableHelper(HashSet<String> visited, String current, int cnt, String prev) {
+//        if (visited.contains(current)) {
+//            return cnt;
+//        }
+//        visited.add(current);
+//        for (String neighbor : g.neighbors(current)) {
+//            if (!neighbor.equals(prev)) {
+//                cnt = isSeparableHelper(visited, neighbor, cnt + 1, current);
+//            }
+//        }
+//        return 0;
+//    }
+//
+//    private String findCycle() {
+//        HashSet<String> visited = new HashSet<String>();
+//        String prev = null;
+//        for (String label: g.labels()) {
+//            visited.add(label);
+//            for (String child: g.neighbors(label)) {
+//                if (visited.contains(child) && !child.equals(prev)) {
+//                    return child;
+//                }
+//            }
+//            prev = label;
+//        }
+//        return null;
+//    }
 
 
     /* HELPERS FOR READING IN CSV FILES. */
