@@ -10,23 +10,37 @@ import java.util.List;
  */
 public class BnBSolver {
 
+    private List<Bear> bears;
+    private List<Bed> beds;
+
     public BnBSolver(List<Bear> bears, List<Bed> beds) {
-        // TODO: Fix me.
+        this.bears = bears;
+        this.beds = beds;
     }
 
     /**
      * Returns List of Bears such that the ith Bear is the same size as the ith Bed of solvedBeds().
      */
     public List<Bear> solvedBears() {
-        // TODO: Fix me.
-        return null;
+        List<Bear> result = new ArrayList<Bear>();
+        for (int i = 0; i < bears.size(); i++) {
+            if (bears.get(i).compareTo(beds.get(i)) == 0) {
+                result.add(bears.get(i));
+            }
+        }
+        return result;
     }
 
     /**
      * Returns List of Beds such that the ith Bear is the same size as the ith Bear of solvedBears().
      */
     public List<Bed> solvedBeds() {
-        // TODO: Fix me.
-        return null;
+        List<Bed> result = new ArrayList<Bed>();
+        for (int i = 0; i < bears.size(); i++) {
+            if (bears.get(i).compareTo(beds.get(i)) == 0) {
+                result.add(beds.get(i));
+            }
+        }
+        return result;
     }
 }
