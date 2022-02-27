@@ -1,6 +1,5 @@
 package bearmaps.proj2c.server.handler.impl;
 
-import bearmaps.proj2c.AugmentedStreetMapGraph;
 import bearmaps.proj2c.server.handler.APIRouteHandler;
 import spark.Request;
 import spark.Response;
@@ -84,12 +83,188 @@ public class RasterAPIHandler extends APIRouteHandler<Map<String, Double>, Map<S
      */
     @Override
     public Map<String, Object> processRequest(Map<String, Double> requestParams, Response response) {
-        //System.out.println("yo, wanna know the parameters given by the web browser? They are:");
-        //System.out.println(requestParams);
+//        System.out.println("yo, wanna know the parameters given by the web browser? They are:");
         Map<String, Object> results = new HashMap<>();
-        System.out.println("Since you haven't implemented RasterAPIHandler.processRequest, nothing is displayed in "
-                + "your browser.");
+        // bound the requestParams in a valid box
+        Map<String, Double> verifiedRequestParams = verifyRequest(requestParams);
+//        System.out.println(requestParams);
+//        System.out.println(verifiedRequestParams);
+
+        // When calculating the depth, we should use original requestParams to maintain the resolution the user requested
+        double requiredLongDPP = calcLongDPP(requestParams.get("lrlon"), requestParams.get("ullon"),
+                verifiedRequestParams.get("w"));
+        int depth = getDepth(requiredLongDPP);
+        String[][] renderGrid = getRenderGrid(depth, verifiedRequestParams);
+        int[] boxInfo = getBoxInfo(verifiedRequestParams, depth);
+        double raster_ul_lon = getGridInfo(depth, boxInfo[0], boxInfo[1])[0];
+        double raster_ul_lat = getGridInfo(depth, boxInfo[0], boxInfo[1])[1];
+        double raster_lr_lon = getGridInfo(depth, boxInfo[2], boxInfo[3])[2];
+        double raster_lr_lat = getGridInfo(depth, boxInfo[2], boxInfo[3])[3];
+
+        results.put("render_grid", renderGrid);
+        results.put("raster_ul_lon", raster_ul_lon);
+        results.put("raster_ul_lat", raster_ul_lat);
+        results.put("raster_lr_lon", raster_lr_lon);
+        results.put("raster_lr_lat", raster_lr_lat);
+        results.put("depth" , depth);
+        if (verifiedRequestParams.containsKey("invalid")) {
+            String[][] defaultRenderGrid = new String[1][1];
+            defaultRenderGrid[0][0] = "d0_x0_y0.jpg";
+            results.put("query_success", false);
+            results.put("render_grid", defaultRenderGrid);
+            results.put("raster_ul_lon", Constants.ROOT_ULLON);
+            results.put("raster_ul_lat", Constants.ROOT_ULLAT);
+            results.put("raster_lr_lon", Constants.ROOT_LRLON);
+            results.put("raster_lr_lat", Constants.ROOT_LRLAT);
+            results.put("depth" , 0);
+        } else {
+            results.put("query_success", true);
+        }
+//        System.out.println("Since you haven't implemented RasterAPIHandler.processRequest, nothing is displayed in "
+//                + "your browser.");
         return results;
+    }
+
+    /**Verify if the request is outside the valid area and correct it accordingly**/
+    private Map<String, Double> verifyRequest(Map<String, Double> requestParams) {
+        Map<String, Double> result = new HashMap<>();
+        int outCnt = 0;
+
+        if (requestParams.get("ullon") < Constants.ROOT_ULLON) {
+            result.put("ullon", Constants.ROOT_ULLON);
+            outCnt += 1;
+        } else {
+            result.put("ullon", requestParams.get("ullon"));
+        }
+
+        if (requestParams.get("ullat") > Constants.ROOT_ULLAT) {
+            result.put("ullat", Constants.ROOT_ULLAT );
+            outCnt += 1;
+        } else {
+            result.put("ullat", requestParams.get("ullat"));
+        }
+
+        if (requestParams.get("lrlon") > Constants.ROOT_LRLON) {
+            result.put("lrlon", Constants.ROOT_LRLON);
+            outCnt += 1;
+        } else {
+            result.put("lrlon", requestParams.get("lrlon"));
+        }
+
+        if (requestParams.get("lrlat") < Constants.ROOT_LRLAT) {
+            result.put("lrlat", Constants.ROOT_LRLAT);
+            outCnt += 1;
+        } else {
+            result.put("lrlat", requestParams.get("lrlat"));
+        }
+
+        if (outCnt == 4) {
+            result.put("invalid", 0.0);
+        }
+        if (requestParams.get("lrlat") > requestParams.get("ullat") && requestParams.get("lrlon") < requestParams.get("ullon")) {
+            result.put("invalid", 0.0);
+        }
+
+        result.put("w", requestParams.get("w"));
+        result.put("h", requestParams.get("h"));
+
+        return result;
+    }
+
+    private double upperBound(double actual, double limit) {
+        if (actual > limit) {
+            return limit;
+        }
+        return actual;
+    }
+
+    private double lowerBound(double actual, double limit) {
+        if (actual < limit) {
+            return limit;
+        }
+        return actual;
+    }
+
+    /**Get the upper left and lower right coordinate of a single grid*/
+    private double[] getGridInfo(int depth, int x, int y) {
+        double[] result = new double[4];
+        result[0] = upperBound(Constants.ROOT_ULLON + getUnitLong(depth) * x, Constants.ROOT_LRLON);
+        result[1] = lowerBound(Constants.ROOT_ULLAT - getUnitLat(depth) * y, Constants.ROOT_LRLAT);
+        result[2] = upperBound(Constants.ROOT_ULLON + getUnitLong(depth) * (x + 1), Constants.ROOT_LRLON);
+        result[3] = lowerBound(Constants.ROOT_ULLAT - getUnitLat(depth) * (y + 1), Constants.ROOT_LRLAT);
+        return result;
+    }
+
+
+    /** Get the bounding box sequence in the order of (ul_x, ul_y, lr_x, lr_y)**/
+    private int[] getBoxInfo(Map<String, Double> requestParams, int depth) {
+        double unitLong = getUnitLong(depth);
+        double unitLat = getUnitLat(depth);
+        int[] result = new int[4];
+        result[0] = (int) Math.floor((requestParams.get("ullon") - Constants.ROOT_ULLON) / unitLong);
+        result[1] = (int) Math.floor((Constants.ROOT_ULLAT - requestParams.get("ullat")) / unitLat);
+        result[2] = (int) Math.floor((requestParams.get("lrlon") - Constants.ROOT_ULLON) / unitLong);
+        result[3] = (int) Math.floor((Constants.ROOT_ULLAT - requestParams.get("lrlat") ) / unitLat);
+        for (int i  = 0; i < result.length; i++) {
+            if (result[i] > Math.pow(2, depth) - 1 ) {
+                result[i] = (int) Math.pow(2, depth) - 1;
+            }
+        }
+        return result;
+    }
+
+    /**Return the render grid*/
+    private String[][] getRenderGrid(int depth, Map<String, Double> requestParams) {
+
+        int[] boxInfo = getBoxInfo(requestParams, depth);
+        int startX = boxInfo[0];
+        int startY = boxInfo[1];
+        int endX = boxInfo[2];
+        int endY = boxInfo[3];
+        int gridWidth = endX - startX + 1;
+        int gridLength = endY - startY + 1;
+
+        String[][] result = new String[gridLength][gridWidth];
+
+        for (int i = 0; i < gridLength; i++) {
+            for (int j = 0; j < gridWidth; j++) {
+                result[i][j] = "d" + depth + "_" + "x" + (startX + j) + "_" + "y" + (startY + i) + ".png";
+            }
+        }
+//        System.out.println("startX: " + startX + " " +  "startY: " + startY +" " + "endX: "+ endX + " " +
+//                "endY: "+ endY + " " + "depth: "+ depth);
+//        System.out.println("gridLength: " + gridLength + " " + "gridWidth: " + gridWidth);
+//        for (int i = 0; i < gridLength; i++) {
+//            for (int j = 0; j < gridWidth; j++) {
+//                System.out.println(result[i][j]);
+//            }
+//        }
+        return result;
+    }
+
+
+    /**private helper for calculating longDPP*/
+    private double calcLongDPP(double lr, double ul, double width) {
+        if (lr - ul < 0) { //in case of reversing the parameter accidentally
+            return (ul - lr) / width;
+        }
+        return (lr - ul) / width;
+    }
+
+    private int getDepth(double longDPP) {
+        double calcDepth =  Math.ceil(Math.log((Constants.ROOT_LRLON - Constants.ROOT_ULLON) / (longDPP * 256)) / Math.log(2));
+        if (calcDepth > Constants.maxDepth) {
+            return Constants.maxDepth;
+        }
+        return (int) calcDepth;
+    }
+
+    private double getUnitLong(int depth) {
+        return (Constants.ROOT_LRLON - Constants.ROOT_ULLON) / Math.pow(2, depth);
+    }
+
+    private double getUnitLat(int depth) {
+        return (Constants.ROOT_ULLAT - Constants.ROOT_LRLAT ) / Math.pow(2, depth);
     }
 
     @Override

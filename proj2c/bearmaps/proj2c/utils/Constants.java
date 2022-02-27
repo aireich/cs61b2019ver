@@ -1,7 +1,5 @@
 package bearmaps.proj2c.utils;
 
-import bearmaps.proj2c.AugmentedStreetMapGraph;
-
 import java.awt.*;
 import java.util.LinkedList;
 import java.util.List;
@@ -40,6 +38,9 @@ public class Constants {
     public static final int TILE_SIZE = 256;
 
     public static AugmentedStreetMapGraph SEMANTIC_STREET_GRAPH;
+
+    /**Max depth of given map*/
+    public static final int maxDepth = 7;
 
     /**
      * This is used to maintain a single List of route so that the same instance(object) is accessed

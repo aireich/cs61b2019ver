@@ -1,6 +1,5 @@
 package bearmaps.test;
 
-import bearmaps.proj2c.AugmentedStreetMapGraph;
 import org.junit.Before;
 import org.junit.Test;
 import bearmaps.proj2c.Router;

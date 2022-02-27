@@ -1,5 +1,10 @@
 package bearmaps.proj2c;
 
+import bearmaps.hw4.AStarSolver;
+import bearmaps.hw4.WeightedEdge;
+import bearmaps.hw4.WeirdSolver;
+
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.regex.Matcher;
@@ -24,10 +29,9 @@ public class Router {
      */
     public static List<Long> shortestPath(AugmentedStreetMapGraph g, double stlon, double stlat,
                                           double destlon, double destlat) {
-        //long src = g.closest(stlon, stlat);
-        //long dest = g.closest(destlon, destlat);
-        //return new WeirdSolver<>(g, src, dest, 20).solution();
-        return null;
+        long src = g.closest(stlon, stlat);
+        long dest = g.closest(destlon, destlat);
+        return new AStarSolver<>(g, src, dest, 20).solution();
     }
 
     /**
@@ -39,8 +43,83 @@ public class Router {
      * route.
      */
     public static List<NavigationDirection> routeDirections(AugmentedStreetMapGraph g, List<Long> route) {
-        /* fill in for part IV */
+        List<NavigationDirection> navi = new ArrayList<>();
+        double currentDistance = 0.0;
+        String startName = null;
+
+        if (route.size() == 0) {
+            navi.add(new NavigationDirection());
+            return navi;
+        }
+
+        if (route.size() == 1) {
+            NavigationDirection nd = new NavigationDirection();
+            nd.way = g.name(route.get(0));
+            nd.direction = NavigationDirection.START;
+            nd.distance = getEdge(0, 1, g, route).weight();
+            navi.add(nd);
+        }
+
+        for (int i = 0; i < route.size(); i++) {
+            WeightedEdge<Long> leftEdge = getEdge(i - 1, i, g, route);
+            WeightedEdge<Long> rightEdge = getEdge(i, i + 1, g, route);
+            String currentRoadName = getName(i, g, route);
+            if (currentRoadName.equals(startName)) {
+                currentDistance += rightEdge.weight();
+                startName = currentRoadName;
+            } else {
+                startName = currentRoadName;
+                NavigationDirection nd = new NavigationDirection();
+                currentDistance += rightEdge.weight();
+                double firstBearing = leftBearing(i, g, route);
+                double secondBearing = rightBearing(i, g, route);
+                nd.direction = NavigationDirection.getDirection(firstBearing, secondBearing);
+                nd.distance = currentDistance;
+                nd.way = g.name((long) rightEdge.to());
+                navi.add(nd);
+                currentDistance = 0.0;
+            }
+        }
+
+        return navi;
+    }
+
+    private static WeightedEdge<Long> getEdge(int start, int end, AugmentedStreetMapGraph g, List<Long> route) {
+        if (end < route.size()) {
+            List<WeightedEdge<Long>> neighbor = g.neighbors(route.get(end));
+            for (WeightedEdge w: neighbor) {
+                if (w.from() == route.get(start) || w.to() == route.get(start)) {
+                    return w;
+                }
+            }
+        }
+
+        return new WeightedEdge<Long>(route.get(end), route.get(end), 0.0);
+    }
+
+    private static String getName(int i, AugmentedStreetMapGraph g, List<Long> route) {
+        if (i < route.size() - 1) {
+            return g.name(route.get(i + 1));
+        }
         return null;
+    }
+
+    private static double leftBearing(int i, AugmentedStreetMapGraph g, List<Long> route) {
+        if (i == 0) {
+            return 0.0;
+        } else {
+            return NavigationDirection.bearing(g.lon(route.get(i - 1)),
+                    g.lat(route.get(i)), g.lon(route.get(i)), g.lat(route.get(i)));
+        }
+    }
+
+    private static double rightBearing(int i, AugmentedStreetMapGraph g, List<Long> route ) {
+        if (i == route.size() -1) {
+            return 0.0;
+        } else {
+            return NavigationDirection.bearing(g.lon(route.get(i - 1)),
+                    g.lat(route.get(i)), g.lon(route.get(i)), g.lat(route.get(i)));
+        }
     }
 
     /**
