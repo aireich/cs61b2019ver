@@ -1,7 +1,5 @@
 package byow.Core;
 
-import java.awt.*;
-
 public class Position {
     private int x;
     private int y;
@@ -49,6 +47,14 @@ public class Position {
 
     public static int absY(Position a, Position b) {
         return Math.abs(a.getY() - b.getY());
+    }
+
+    public static int absMin(Position a, Position b) {
+        return Math.min(Math.abs(a.getX() - b.getX()), Math.abs(a.getY() - b.getY()));
+    }
+
+    public boolean equals(Position p) {
+        return x == p.getX() &&  y == p.getY();
     }
 
     @Override

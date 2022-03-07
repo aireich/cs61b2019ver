@@ -1,177 +1,89 @@
 package byow.Core;
+import byow.TileEngine.TETile;
 
-import java.awt.*;
 import java.util.HashSet;
+import java.util.List;
 
-public class Hallway extends Place {
-    private Position start;
-    private Position end;
-    private Position corner;
-    private boolean isLShape;
-    private boolean horizontal;
+public class Hallway {
+    private final Position start;
+    private final Position end;
     private boolean vertical;
-    public static final int LEFT_UP = 0;
-    public static final int LEFT_DOWN = 1;
-    public static final int RIGHT_UP = 2;
-    public static final int RIGHT_DOWN = 3;
-    private int LShape = 5;
+    private boolean horizontal;
 
     public Hallway(Position start, Position end) {
-        super(start);
         this.start = start;
         this.end = end;
-        corner = createCorner();
-        if (Math.max(start.getX(), end.getX()) == Math.min(start.getX(), end.getX()) + 2) {
+        if (start.getX() == end.getX()) {
             vertical = true;
-        } else if (Math.max(start.getY(), end.getY()) == Math.min(start.getY(), end.getY()) + 2) {
+        } else if (start.getY() == end.getY()) {
             horizontal = true;
-        } else if ((start.getX() != end.getX()) && (start.getY() != end.getY())) {
-            isLShape = true;
-            LShape = decideLShape();
         }
     }
 
-//    public HashSet<Position> getInnerSpace() {
-//        HashSet<Position> innerSpace = new HashSet<>();
-//        for (int i)
-//        return innerSpace;
-//    }
+    public boolean checkSelfValidation() {
+        return (vertical || horizontal) && !start.equals(end);
+    }
 
-    public boolean selfValidate() {
-        if (Position.absX(start, end) < 3 ||Position.absY(start, end) < 3) {
-            return false;
-        } if (start.getY() == end.getY() || start.getX() == end.getX()) {
+    /** check if the Hallway is inside the boundary of 2D TETile array
+     * */
+    public boolean checkWorldValidation(TETile[][] world) {
+        if (start.getX() == world.length - 1 || start.getX() == world[0].length - 1 ||
+        end.getX() == world.length - 1 || end.getX() == world[0].length - 1 ||
+        start.getY() == world.length - 1 || start.getY() == world[0].length - 1||
+                end.getY() == world.length - 1 || end.getY() == world[0].length - 1 ) {
             return false;
         }
         return true;
     }
 
-    private int decideLShape() {
-        if (start.getX() < end.getX() && start.getY() < end.getY()) {
-            return RIGHT_UP;
+
+    /** get the inner space of a Hallway instance
+     * @return a HashSet which contains all Position inside the Hallway except WALL (in other words, boundary)
+     * ***/
+    public HashSet<Position> getInnerSpace() {
+        HashSet<Position> innerSpace = new HashSet<>();
+        if (horizontal) {
+            int realStartX = Math.min(start.getX(), end.getX());
+            int realEndX = Math.max(start.getX(), end.getX());
+            for (int i = realStartX + 1; i < realEndX; i++) {
+                innerSpace.add(new Position(i, start.getY()));
+            }
         }
-        if (start.getX() < end.getX() && start.getY() > end.getY()) {
-            return RIGHT_DOWN;
+        if (vertical) {
+            int realStartY = Math.min(start.getY(), end.getY());
+            int realEndY = Math.max(start.getY(), end.getY());
+            for (int i = realStartY + 1; i < realEndY; i++) {
+                innerSpace.add(new Position(start.getX(), i));
+            }
         }
-        if (start.getX() > end.getX() && start.getY() < end.getY()) {
-            return LEFT_UP;
-        }
-        if (start.getX() > end.getX() && start.getY() > end.getY()) {
-            return LEFT_DOWN;
-        }
-        return 5;
-    }
-
-    public int getLShape() {
-        return LShape;
-    }
-
-    public Position createCorner() {
-        return new Position(end.getX(), start.getY());
-    }
-
-    public Position getCorner() {
-        return corner;
-    }
-
-    public boolean isHorizontal() {
-        return horizontal;
-    }
-
-    public boolean isLShape() {
-        return isLShape;
+        return innerSpace;
     }
 
     public boolean isVertical() {
         return vertical;
     }
 
-    public int LHorizontalLength() {
-        if (isLShape) {
-            return start.getX() < end.getX() ? end.getX() - start.getX() : start.getX() - end.getX();
-        }
-        return -1;
-    }
-
-    public int LVerticalLength() {
-        if (isLShape) {
-            return start.getY() < end.getY() ? end.getY() - start.getY() : start.getY() - end.getY();
-        }
-        return -1;
-    }
-
-    public Position getEnd() {
-        return end;
+    public boolean isHorizontal() {
+        return horizontal;
     }
 
     public Position getStart() {
         return start;
     }
 
-    public void setEnd(Position end) {
-        this.end = end;
-    }
-
-    public void setStart(Position start) {
-        this.start = start;
-    }
-
-    public int getLength() {
-        if (horizontal) {
-            return start.getX() < end.getX() ? end.getX() - start.getX() : start.getX() - end.getX();
-        }
-        if (vertical) {
-            return start.getY() < end.getY() ? end.getY() - start.getY() : start.getY() - end.getY();
-        }
-        throw new IllegalArgumentException("Not a straight hallway");
-    }
-
-    public int getWidth() {
-        if (horizontal || vertical) {
-            return start.getX() < end.getX() ? end.getX() - start.getX() : start.getX() - end.getX();
-        }
-        throw new IllegalArgumentException("Not a straight hallway");
-    }
-
-    public int getHeight() {
-        if (vertical || horizontal) {
-            return start.getY() < end.getY() ? end.getY() - start.getY() : start.getY() - end.getY();
-        }
-        throw new IllegalArgumentException("Not a straight hallway");
-    }
-
-    public boolean intersectOrTouchWith(Hallway hallway) {
-        Hallway thisOne = new Hallway(start, corner);
-        Hallway thisTwo = new Hallway(corner, end);
-        Hallway hallway1 = new Hallway(hallway.getStart(), hallway.getCorner());
-        Hallway hallway2 = new Hallway(hallway.getCorner(), hallway.getBase());
-        return !intersectOrTouchWithHelper(thisOne, hallway1) &&
-                !intersectOrTouchWithHelper(thisOne, hallway2) &&
-                !intersectOrTouchWithHelper(thisTwo, hallway1) &&
-                !intersectOrTouchWithHelper(thisTwo, hallway2);
-    }
-
-    private static boolean intersectOrTouchWithHelper(Hallway h1, Hallway h2) {
-        boolean XBelow = h1.getStart().getX() + h1.getWidth() < h2.getStart().getX();
-        boolean XAbove = h1.getStart().getX()> h2.getStart().getX() + h2.getWidth();
-        boolean YBelow = h1.getStart().getY() + h1.getHeight() < h2.getBase().getY();
-        boolean YAbove = h1.getStart().getY() > h2.getBase().getY() + h2.getHeight();
-        return (!XBelow && !XAbove) || (!YAbove && !YBelow);
+    public Position getEnd() {
+        return end;
     }
 
     @Override
     public String toString() {
         return "Hallway{" +
-                "startX=" + start.getX() +
-                " startY=" + start.getY() +
-                ", endX=" + end.getX() +
-                " endY=" + end.getY() +
-                ", cornerX=" + corner.getX() +
-                " cornerY=" + corner.getY() +
-                ", isLShape=" + isLShape +
-                ", horizontal=" + horizontal +
-                ", vertical=" + vertical +
-                ", LShape=" + LShape +
+                "startX= " + start.getX() +
+                " startY= " + start.getY() +
+                " , endX= " + end.getX() +
+                " endX= " + end.getY() +
+                " , vertical=" + vertical +
+                " , horizontal=" + horizontal +
                 '}';
     }
 }

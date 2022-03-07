@@ -6,25 +6,29 @@ import byow.TileEngine.Tileset;
 import org.junit.Test;
 
 import java.awt.*;
-import java.util.ArrayList;
+import java.util.*;
 import java.util.List;
-import java.util.NoSuchElementException;
-import java.util.Random;
 
 public class Engine {
     TERenderer ter = new TERenderer();
     /* Feel free to change the width and height. */
     public static final int WIDTH = 80;
     public static final int HEIGHT = 30;
-    public static final int maxNumOfDoors = 4;
+    public static final int maxNumOfHallways = 4;
     private boolean started;
     private boolean ended;
     private int seed;
     private StringBuilder sb;
     private String prevStatus;
     private boolean worldGenerated;
+    /**contains all Room instance */
     private List<Room> rooms;
+    /** contains all Hallway instance **/
     private List<Hallway> hallways;
+    /** contains all Position inside Room or Hallway**/
+    private HashSet<Position> floors;
+    /** contains all Room instance with its number of connected Hallway**/
+    private HashMap<Room, Integer> hallwayCntOfRoom;
 
     public Engine() {
         this.started = false;
@@ -35,6 +39,8 @@ public class Engine {
         this.worldGenerated = false;
         this.rooms = new ArrayList<>();
         this.hallways = new ArrayList<>();
+        this.floors = new HashSet<>();
+        this.hallwayCntOfRoom = new HashMap<>();
     }
 
     /**
@@ -105,10 +111,22 @@ public class Engine {
         return finalWorldFrame;
     }
 
+    /*** Generate a new TETile 2D array.
+     * The basic idea is firstly generating random number of Room with random location and random size.
+     * Then for each of them choose another random Room instance and connect them with a Hallway.
+     * Thus, each Room will have at least one Hallway and at most maxNumOfHallways.
+     * For each Hallway, its start and end Position define its length. Its walls are built beside
+     * these two positions (left and right if vertical, up and down if horizontal). These two positions are
+     * drawn as WALL.
+     * After connecting all Room, we will draw Floor tile to cover the overlapped rooms or hallways.
+     * In other words, for a position, if it's inside a Room or a Hallway, it will be drawn as Floor instead of
+     * WALL or NOTHING.
+     * @param seed random integer seed
+     * */
     public TETile[][] generateNewWorld(int seed) {
         Random r = new Random(seed);
-        int width = 40;
-        int height = 30;
+        int width = WIDTH;
+        int height = HEIGHT;
         TETile[][] world = new TETile[width][height];
         for (int i = 0; i < width; i++) {
             for (int j = 0; j < height; j++) {
@@ -117,37 +135,89 @@ public class Engine {
         }
         int numOfRoom = r.nextInt(width);
         int numOfHallway = r.nextInt(width);
-        System.out.println("numOfRooms: " + numOfRoom);
-        System.out.println("numOfHallway: " + numOfHallway);
+//        System.out.println("numOfRooms: " + numOfRoom);
+//        System.out.println("numOfHallway: " + numOfHallway);
         for (int i = 0; i < numOfRoom; i++) {
-            Room newRoom = new Room(r, new Position(r.nextInt(width), r.nextInt(height)),
-                    RandomUtils.uniform(r, 4, width/5), RandomUtils.uniform(r, 4, height/5),
-                    RandomUtils.uniform(r, 1, maxNumOfDoors));
-//            if (newRoom.checkSelfValidation() && addNewRoom(world, newRoom)) {
-//                System.out.println(newRoom.toString());
-//            }
+            generateNewRoom(world, r);
         }
-        for (int i = 0; i < numOfHallway; i++) {
-            Hallway newHallway = new Hallway(new Position(r.nextInt(width), r.nextInt(height)),
-                    new Position(r.nextInt(width), r.nextInt(height)));
-            addNewHallway(world, newHallway);
+        for (Room room : rooms) {
+            if (hallwayCntOfRoom.get(room) < 1) {
+                generateNewPairOfHallway(world, room, rooms, r);
+            }
         }
+        coverOverlapWallWithFloor(world);
         worldGenerated = true;
         return world;
     }
 
-    private boolean addNewRoom(TETile[][] world, Room room) {
-        int width = world.length;
-        int height = world[0].length;
-        boolean noOverlap = true;
-        Position base = room.getBase();
-        if (rooms.size() > 0) {
-            for (Room prev: rooms) {
-                if (room.intersectOrTouchWith(prev)) {
-                    noOverlap = false;
+
+   /** Cover the grid with floor tile if this position belongs to an inner space of a room or hallway
+    * @param world 2D TETile array
+    * **/
+    private void coverOverlapWallWithFloor(TETile[][] world) {
+        for (Position p: floors) {
+            drawSingleFloor(world, p);
+        }
+    }
+
+    /** Generate a new room in a 2D TETile array
+     * @param world 2D TETile array
+     * @param r Random instance
+     * */
+    private void generateNewRoom(TETile[][] world, Random r) {
+        Room newRoom = new Room(r, new Position(r.nextInt(WIDTH), r.nextInt(HEIGHT)),
+                RandomUtils.uniform(r, 4, WIDTH/5), RandomUtils.uniform(r, 4, HEIGHT/5));
+        if (newRoom.checkSelfValidation()) {
+            addNewRoomToWorld(world, newRoom);
+//            System.out.println(newRoom.toString());
+        }
+    }
+
+    /** Generate a pair of hallway connecting to rooms
+     * @param r a Random instance
+     * @param world 2D TETile array
+     * @param rooms list of rooms
+     * @param startRoom one decided Room instance
+     * **/
+    private void generateNewPairOfHallway(TETile[][] world, Room startRoom, List<Room> rooms, Random r) {
+        Room targetRoom = rooms.get(r.nextInt(rooms.size() - 1));
+        if (!targetRoom.equals(startRoom)) {
+            if (hallwayCntOfRoom.get(startRoom) < maxNumOfHallways && hallwayCntOfRoom.get(targetRoom) < maxNumOfHallways) {
+                Position selectedStart = startRoom.getInnerSpace().iterator().next();
+                Position selectedEnd = targetRoom.getInnerSpace().iterator().next();
+                Position corner = new Position(selectedStart.getX(), selectedEnd.getY());
+                Hallway firstHallway = new Hallway(selectedStart, corner);
+                if (addNewHallway(world, firstHallway)) {
+                    hallwayCntOfRoom.put(startRoom, hallwayCntOfRoom.get(startRoom) + 1);
+                    drawSingleFloor(world, corner);
+                }
+                Hallway secondHallway = new Hallway(corner, selectedEnd);
+                if (addNewHallway(world, secondHallway)) {
+                    hallwayCntOfRoom.put(targetRoom, hallwayCntOfRoom.get(targetRoom) + 1);
+                    drawSingleFloor(world, corner);
                 }
             }
         }
+    }
+
+
+
+    /** Add new room to 2D TETile array
+     * @param world 2D TETile array
+     * @param room a Room instance
+     * */
+    private boolean addNewRoomToWorld(TETile[][] world, Room room) {
+        int width = WIDTH;
+        int height = HEIGHT;
+        boolean noOverlap = true;
+        Position base = room.getBase();
+//        if (rooms.size() > 0) {
+//            for (Room prev: rooms) {
+//                if (room.intersectOrTouchWith(prev)) {
+//                    noOverlap = false;
+//                }
+//            }
+//        }
         if (room.checkWorldValidation(width, height) && noOverlap) {
             drawSingleWall(world, base, base.moveRight(room.getWidth() - 1));
             drawSingleWall(world, base.moveUp(room.getHeight() - 1),
@@ -156,87 +226,73 @@ public class Engine {
             drawSingleWall(world, base.moveRight(room.getWidth() - 1),
                     base.moveRight(room.getWidth() - 1).moveUp(room.getHeight() - 1));
             rooms.add(room);
+            floors.addAll(room.getInnerSpace());
+            hallwayCntOfRoom.put(room, 0);
             return true;
         }
         return false;
 
     }
 
+
+    /** add a hallway to 2D TETile array
+     * @param world 2D TETile array
+     * @param hallway a Hallway instance
+     * */
     private boolean addNewHallway(TETile[][] world, Hallway hallway) {
-        boolean valid = hallway.selfValidate();
-//        if (hallways.size() > 0) {
-//            for (Hallway h: hallways) {
-//                if (hallway.intersectOrTouchWith(h)){
-//                    valid = false;
-//                }
-//            }
-//        }
+        boolean valid = hallway.checkSelfValidation() && hallway.checkWorldValidation(world) ;
         if (valid) {
+//            System.out.println(hallway.toString());
             drawHallway(world, hallway);
             hallways.add(hallway);
+            floors.addAll(hallway.getInnerSpace());
             return true;
         }
         return false;
     }
 
+    /** draw a Hallway instance on a 2D TETile array
+     * @param hallway a Hallway instance
+     * @param world 2D TETile array
+     * **/
     public void drawHallway(TETile[][] world, Hallway hallway) {
-        Position corner = hallway.getCorner();
-        if (hallway.getLShape() == Hallway.LEFT_UP) {
-            drawSingleWall(world, corner, hallway.getStart());
-            drawSingleWall(world, corner, hallway.getEnd());
-            drawSingleWall(world, corner.moveRight(2).moveUp(2), hallway.getStart().moveUp(2));
-            drawSingleWall(world, corner.moveRight(2).moveUp(2), hallway.getEnd().moveRight(2));
-            System.out.println("leftup on: " + hallway.toString());
+        if (hallway.isVertical()) {
+            drawSingleWall(world, hallway.getStart().moveLeft(1), hallway.getEnd().moveLeft(1));
+            drawSingleWall(world, hallway.getStart().moveRight(1), hallway.getEnd().moveRight(1));
+            drawSingleBlock(world, hallway.getStart());
+            drawSingleBlock(world, hallway.getEnd());
         }
-        else if (hallway.getLShape() == Hallway.LEFT_DOWN) {
-            drawSingleWall(world, corner, hallway.getStart());
-            drawSingleWall(world, hallway.getEnd(), corner);
-            drawSingleWall(world, corner.moveDown(2).moveRight(2), hallway.getStart().moveDown(2));
-            drawSingleWall(world, hallway.getEnd().moveRight(2), corner.moveDown(2).moveRight(2));
-            System.out.println("leftdown on: " + hallway.toString());
+        else if (hallway.isHorizontal()) {
+            drawSingleWall(world, hallway.getStart().moveUp(1), hallway.getEnd().moveUp(1));
+            drawSingleWall(world, hallway.getStart().moveDown(1), hallway.getEnd().moveDown(1));
+            drawSingleBlock(world, hallway.getStart());
+            drawSingleBlock(world, hallway.getEnd());
         }
-        else if (hallway.getLShape() == Hallway.RIGHT_UP) {
-            drawSingleWall(world, hallway.getStart(), corner);
-            drawSingleWall(world, corner, hallway.getEnd());
-            drawSingleWall(world, hallway.getStart().moveUp(2), corner.moveLeft(2).moveUp(2));
-            drawSingleWall(world, corner.moveLeft(2).moveUp(2), hallway.getEnd().moveLeft(2));
-            System.out.println("rightup on: " + hallway.toString());
-        }
-        else if (hallway.getLShape() == Hallway.RIGHT_DOWN) {
-            drawSingleWall(world, hallway.getStart(), corner);
-            drawSingleWall(world, corner, hallway.getEnd());
-            drawSingleWall(world, hallway.getStart().moveDown(2), corner.moveLeft(2).moveDown(2));
-            drawSingleWall(world, corner.moveLeft(2).moveDown(2), hallway.getEnd().moveLeft(2));
-            System.out.println("rightdown on: " + hallway.toString());
-        }
-//        else if (hallway.isVertical()) {
-//            drawSingleWall(world, hallway.getStart(), hallway.getEnd().moveLeft(2));
-//            drawSingleWall(world, hallway.getStart().moveRight(2), hallway.getEnd());
-//            System.out.println("vertical on: " + hallway.toString());
-//        }
-//        else if (hallway.isHorizontal()) {
-//            drawSingleWall(world, hallway.getStart(), hallway.getEnd().moveDown(2));
-//            drawSingleWall(world, hallway.getStart().moveUp(2), hallway.getEnd());
-//            System.out.println("horizontal on: " + hallway.toString());
-//        }
         else {
-            System.out.println(hallway.toString());
-            throw new RuntimeException("not a valid hallway");
+            throw new RuntimeException(" not a valid hallway");
         }
+
     }
 
-    public void drawSingleWall(TETile[][] world, Position start, Position end) {
+
+    /**
+     *  draw a WALL on a 2D TETile array
+     * @param world 2D TETile array
+     * @param end end position
+     * @param start start position
+     *  **/
+    private void drawSingleWall(TETile[][] world, Position start, Position end) {
         if (start.getY() == end.getY()) {
             int realStartX = Math.min(start.getX(), end.getX());
             int realEndX = Math.max(start.getX(), end.getX());
-            for (int i = realStartX; i < realEndX; i++) {
+            for (int i = realStartX; i <= realEndX; i++) {
                 world[i][start.getY()] = Tileset.WALL;
             }
         }
         else if (start.getX() == end.getX()) {
             int realStartY = Math.min(start.getY(), end.getY());
             int realEndY = Math.max(start.getY(), end.getY());
-            for (int i = realStartY; i < realEndY; i++) {
+            for (int i = realStartY; i <= realEndY; i++) {
                 world[start.getX()][i] = Tileset.WALL;
             }
         } else {
@@ -245,10 +301,17 @@ public class Engine {
         }
     }
 
+    private void drawSingleBlock(TETile[][] world, Position p) {
+        world[p.getX()][p.getY()] = Tileset.WALL;
+    }
+
+    private void drawSingleFloor(TETile[][] world, Position p) {
+        world[p.getX()][p.getY()] = Tileset.FLOOR;
+    }
+
     public void start() {
         started = true;
     }
-
 
     public void end() {
         ended = false;
@@ -277,7 +340,7 @@ public class Engine {
     public static void renderNewWorld(){
         Engine e = new Engine();
         TERenderer ter = new TERenderer();
-        ter.initialize(40, 30);
+        ter.initialize(WIDTH, HEIGHT);
         TETile[][] world = e.generateNewWorld(456);
         ter.renderFrame(world);
     }
@@ -285,17 +348,18 @@ public class Engine {
     public static void renderNewHallway() {
         Engine e = new Engine();
         TERenderer ter = new TERenderer();
-        int width = 40;
-        int height = 30;
-        ter.initialize(40, 30);
-        TETile[][] world = new TETile[40][30];
-        for (int i = 0; i < 40; i++) {
-            for (int j = 0; j < 30; j++) {
+        ter.initialize(WIDTH, HEIGHT);
+        TETile[][] world = new TETile[WIDTH][HEIGHT];
+        for (int i = 0; i < WIDTH; i++) {
+            for (int j = 0; j < HEIGHT; j++) {
                 world[i][j] = Tileset.NOTHING;
             }
         }
-        Hallway test = new Hallway(new Position(20,10), new Position(10,8));
+        Hallway test = new Hallway(new Position(20,10), new Position(10,10));
+        Hallway test2 = new Hallway(new Position(20,6), new Position(10,6));
         e.addNewHallway(world, test);
+        e.addNewHallway(world, test2);
+        e.coverOverlapWallWithFloor(world);
         ter.renderFrame(world);
 
     }
