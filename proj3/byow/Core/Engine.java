@@ -1,11 +1,14 @@
 package byow.Core;
 
+import byow.SaveDemo.Editor;
 import byow.TileEngine.TERenderer;
 import byow.TileEngine.TETile;
 import byow.TileEngine.Tileset;
+import edu.princeton.cs.introcs.StdDraw;
 import org.junit.Test;
 
 import java.awt.*;
+import java.io.*;
 import java.util.*;
 import java.util.List;
 
@@ -21,6 +24,8 @@ public class Engine {
     private StringBuilder sb;
     private String prevStatus;
     private boolean worldGenerated;
+    private Position playerPosition;
+    private Position doorPosition;
     /**contains all Room instance */
     private List<Room> rooms;
     /** contains all Hallway instance **/
@@ -48,7 +53,47 @@ public class Engine {
      * including inputs from the main menu.
      */
     public void interactWithKeyboard() {
-
+        TERenderer teRenderer = new TERenderer();
+        TETile[][] finalWorldFrame = null;
+        StringBuilder sb = new StringBuilder();
+        char prev = 0;
+        while (StdDraw.hasNextKeyTyped()) {
+            char c = Character.toLowerCase(StdDraw.nextKeyTyped());
+                if (c == 'n' ) {
+                    if (started) {
+                        continue;
+                    } else {
+                        start();
+                    }
+                }
+                if (c == ':') {
+                    continue;
+                }
+                if (c == 'q') {
+                    if (prev == ':') {
+                        end();
+                    }
+                }
+                if (c == 's') {
+                    if (Character.isDigit(prev) && started) {
+                        seed = Integer.parseInt(sb.toString());
+                        finalWorldFrame = generateNewWorld(seed);
+                    } else {
+                        moveAvatar(finalWorldFrame, 's');
+                    }
+                }
+                if (Character.isDigit(c) && started) {
+                    sb.append(c);
+                }
+                if (c == 'w' || c == 'a' || c == 'd') {
+                    moveAvatar(finalWorldFrame, c);
+                }
+                if (c == 'l') {
+                    loadStatus();
+                }
+            prev = c;
+            teRenderer.renderFrame(finalWorldFrame);
+        }
     }
 
     /**
@@ -82,33 +127,112 @@ public class Engine {
         // that works for many different input types.
         TETile[][] finalWorldFrame = null;
         StringInput si = new StringInput(input);
+//        si.initialize(WIDTH, HEIGHT);
         while(si.hasNext()) {
             if (si.shouldStart() && !started) {
                 start();
-                prevStatus += si.getNext();
+                char nextChar = si.getNext();
+//                si.addChar(nextChar);
+                si.addActions(nextChar);
+//                prevStatus += si.getNext();
             } else if (!started && si.shouldLoad()) {
-                if (prevStatusExist()) {
-                    interactWithInputString(prevStatus); ///?????
-                } else {
-                    throw new NoSuchElementException("No Load Found");
-                }
+                loadStatus();
             } else if (si.checkNextNumber() && started && !si.seedFinished() && !checkSeedExist()) {
-                char nextNumber = si.getNext();
-                prevStatus += nextNumber;
-                si.addNumber(nextNumber);
-            } else if (started && si.seedFinished()) {
-                if (worldGenerated) {
-                    prevStatus += si.getNext();
-                }
-                else {
+                char nextChar = si.getNext();
+//                si.addChar(nextChar);
+                si.addActions(nextChar);
+//                prevStatus += nextNumber;
+                si.addNumber(nextChar);
+                if (started && si.seedShouldFinish()) {
                     seed = si.getSeed();
+                    si.getNext();
                     finalWorldFrame = generateNewWorld(seed);
                 }
+            } else if (started && si.seedFinished()) {
+                char next = si.getNext();
+//                si.addChar(next);
+                si.addActions(next);
+                moveAvatar(finalWorldFrame, next);
+                //                    prevStatus += si.getNext();
+            } else if (si.shouldEnd()) {
+                end();
             }
         }
 
 
         return finalWorldFrame;
+    }
+
+    private void moveAvatar(TETile[][] world, char action) {
+        switch (action) {
+            case 's':
+                if (validatePosition(world, playerPosition.moveDown(1))) {
+                    playerPosition = playerPosition.moveDown(1);
+                    drawAvatar(world, playerPosition, playerPosition.moveUp(1));
+                }
+            case 'w' :
+                if (validatePosition(world, playerPosition.moveUp(1))) {
+                    playerPosition = playerPosition.moveUp(1);
+                    drawAvatar(world, playerPosition, playerPosition.moveDown(1));
+                }
+            case 'a' :
+                if (validatePosition(world, playerPosition.moveLeft(1))) {
+                    playerPosition = playerPosition.moveLeft(1);
+                    drawAvatar(world, playerPosition, playerPosition.moveRight(1));
+                }
+            case 'd' :
+                if (validatePosition(world, playerPosition.moveRight(1))) {
+                    playerPosition = playerPosition.moveRight(1);
+                    drawAvatar(world, playerPosition, playerPosition.moveLeft(1));
+                }
+            default:
+                drawAvatar(world, playerPosition, playerPosition);
+        }
+    }
+
+    private static boolean validatePosition(TETile[][] world, Position p) {
+       return !world[p.getX()][p.getY()].equals(Tileset.WALL);
+    }
+
+    private static StringInput loadStatus() {
+        File f = new File("./save_data.txt");
+        if (f.exists()) {
+            try {
+                FileInputStream fs = new FileInputStream(f);
+                ObjectInputStream os = new ObjectInputStream(fs);
+                return (StringInput) os.readObject();
+            } catch (FileNotFoundException e) {
+                System.out.println("file not found");
+                System.exit(0);
+            } catch (IOException e) {
+                System.out.println(e);
+                System.exit(0);
+            } catch (ClassNotFoundException e) {
+                System.out.println("class not found");
+                System.exit(0);
+            }
+        }
+
+        /* In the case no Editor has been saved yet, we return a new one. */
+        return new StringInput(" ");
+    }
+
+    public void saveStatus(InputType it) {
+        File f = new File("./save_data.txt");
+        try {
+            if (!f.exists()) {
+                f.createNewFile();
+            }
+            FileOutputStream fs = new FileOutputStream(f);
+            ObjectOutputStream os = new ObjectOutputStream(fs);
+            os.writeObject(it);
+        } catch (FileNotFoundException e) {
+            System.out.println("FILE NOT FOUND");
+            System.exit(0);
+        } catch (IOException e) {
+            System.out.println(e.getStackTrace());
+            System.exit(0);
+        }
     }
 
     /*** Generate a new TETile 2D array.
@@ -146,6 +270,10 @@ public class Engine {
             }
         }
         coverOverlapWallWithFloor(world);
+        playerPosition = getRandomInnerSpace();
+        drawAvatar(world, playerPosition, playerPosition);
+        doorPosition = getRandomInnerSpace();
+        drawDoor(world, doorPosition);
         worldGenerated = true;
         return world;
     }
@@ -309,39 +437,47 @@ public class Engine {
         world[p.getX()][p.getY()] = Tileset.FLOOR;
     }
 
+    private void drawAvatar(TETile[][] world, Position p, Position prev) {
+        world[prev.getX()][prev.getY()] = Tileset.FLOOR;
+        world[p.getX()][p.getY()] = Tileset.AVATAR;
+    }
+
+    private void drawDoor(TETile[][] world, Position p) {
+        world[p.getX()][p.getY()] = Tileset.UNLOCKED_DOOR;
+    }
+
+    private Position getRandomInnerSpace() {
+        return floors.iterator().next();
+    }
+
     public void start() {
         started = true;
     }
 
     public void end() {
-        ended = false;
+        ended = true;
+        System.exit(0);
     }
 
     public boolean ifEnd() {
         return ended;
     }
 
-    public String prevStatus() {
-        return prevStatus;
-    }
 
     public boolean checkSeedExist() {
         return seed != 0;
     }
 
-    public boolean prevStatusExist() {
-        return prevStatus.length() > 0;
-    }
 
     public static void main(String[] args) {
-        renderNewWorld();
+        renderStringInput();
     }
 
     public static void renderNewWorld(){
         Engine e = new Engine();
         TERenderer ter = new TERenderer();
         ter.initialize(WIDTH, HEIGHT);
-        TETile[][] world = e.generateNewWorld(456);
+        TETile[][] world = e.generateNewWorld(123);
         ter.renderFrame(world);
     }
 
@@ -360,6 +496,21 @@ public class Engine {
         e.addNewHallway(world, test);
         e.addNewHallway(world, test2);
         e.coverOverlapWallWithFloor(world);
+        ter.renderFrame(world);
+
+    }
+
+    public static void renderStringInput() {
+        Engine e = new Engine();
+        TERenderer ter = new TERenderer();
+        ter.initialize(WIDTH, HEIGHT);
+        TETile[][] world = new TETile[WIDTH][HEIGHT];
+        for (int i = 0; i < WIDTH; i++) {
+            for (int j = 0; j < HEIGHT; j++) {
+                world[i][j] = Tileset.NOTHING;
+            }
+        }
+        world = e.interactWithInputString("N123SSWWWS:Q");
         ter.renderFrame(world);
 
     }

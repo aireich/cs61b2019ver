@@ -1,13 +1,20 @@
 package byow.Core;
 
+import edu.princeton.cs.introcs.StdDraw;
+
+import java.awt.*;
+
 public class StringInput implements InputType{
 
     private String s;
+    private String actions;
     private int index;
     private boolean started;
     private boolean ended;
     private int seed;
     private StringBuilder sb;
+    private boolean seedFinished;
+    private boolean seedShouldFinish;
 
     public StringInput(String s) {
         this.s = s;
@@ -16,6 +23,28 @@ public class StringInput implements InputType{
         this.ended = false;
         this.seed = 0;
         this.sb = new StringBuilder();
+        this.actions = "";
+        this.seedFinished = false;
+        this.seedShouldFinish = false;
+    }
+    @Override
+    public void initialize(int width, int height) {
+        StdDraw.setCanvasSize(width * 16, height * 16);
+        StdDraw.setFont(new Font("Monaco", Font.BOLD, 30));
+        StdDraw.text(width / 2, height * 2/ 3, "CS61B: GAME");
+        StdDraw.text(width / 2, height * 2/ 3 - 1, "Author: aireich");
+        StdDraw.text(width / 2, height / 2, "NEW GAME (N)");
+        StdDraw.text(width / 2, height / 2 - 1, "LOAD GAME (L)");
+        StdDraw.text(width / 2, height / 2 - 2, "QUIT (Q)");
+        StdDraw.setXscale(0, width);
+        StdDraw.setYscale(0, height);
+        StdDraw.clear(StdDraw.BLACK);
+        StdDraw.enableDoubleBuffering();
+    }
+
+    @Override
+    public void addChar(char c) {
+        s = s + c;
     }
 
     @Override
@@ -69,11 +98,30 @@ public class StringInput implements InputType{
 
     @Override
     public boolean seedFinished() {
-        return !checkNextNumber() && seed != 0 && peekAt(index + 1) == 's';
+        if (seed != 0) {
+            seedFinished = true;
+        }
+        return seedFinished;
+    }
+
+    @Override
+    public boolean seedShouldFinish() {
+        if (seed == 0 && getSeed() != 0 && peekAt(index) == 's' && !seedFinished) {
+            seedShouldFinish = true;
+            seed = getSeed();
+        } else if (seedFinished) {
+            seedShouldFinish = false;
+        }
+        return seedShouldFinish;
     }
 
     @Override
     public boolean shouldLoad() {
         return Character.toLowerCase(s.charAt(index)) == 'l';
+    }
+
+    @Override
+    public void addActions(char c) {
+        actions += c;
     }
 }
