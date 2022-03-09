@@ -3,7 +3,7 @@ import java.util.HashSet;
 import java.util.Objects;
 import java.util.Random;
 
-public class Room{
+public class Room {
     private final Position base;
     private final int width;
     private final int height;
@@ -15,7 +15,8 @@ public class Room{
         this.height = height;
     }
     /** get the inner space of a Room instance
-     * @return a HashSet which contains all Position inside the Room except WALL (in other words, boundary)
+     * @return a HashSet which contains all Position inside the Room except WALL
+     * (in other words, boundary)
      * ***/
     public HashSet<Position> getInnerSpace() {
         HashSet<Position> result = new HashSet<>();
@@ -49,11 +50,11 @@ public class Room{
      * check if the Room instance intersect or touch with another Room instance
      * */
     public boolean intersectOrTouchWith(Room room) {
-        boolean XBelow = base.getX() + width < room.getBase().getX();
-        boolean XAbove = base.getX() > room.getBase().getX() + room.getWidth();
-        boolean YBelow = base.getY() + height < room.getBase().getY();
-        boolean YAbove = base.getY() > room.getBase().getY() + room.getHeight();
-        return (!XBelow && !XAbove) || (!YAbove && !YBelow);
+        boolean xBelow = base.getX() + width < room.getBase().getX();
+        boolean xAbove = base.getX() > room.getBase().getX() + room.getWidth();
+        boolean yBelow = base.getY() + height < room.getBase().getY();
+        boolean yAbove = base.getY() > room.getBase().getY() + room.getHeight();
+        return (!xBelow && !xAbove) || (!yAbove && !yBelow);
     }
 
     public Position getBase() {
@@ -77,8 +78,12 @@ public class Room{
 
     @Override
     public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
         Room room = (Room) o;
         return width == room.width && height == room.height && Objects.equals(base, room.base);
     }

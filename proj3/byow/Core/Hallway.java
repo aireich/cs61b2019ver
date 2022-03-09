@@ -2,7 +2,6 @@ package byow.Core;
 import byow.TileEngine.TETile;
 
 import java.util.HashSet;
-import java.util.List;
 
 public class Hallway {
     private final Position start;
@@ -27,10 +26,10 @@ public class Hallway {
     /** check if the Hallway is inside the boundary of 2D TETile array
      * */
     public boolean checkWorldValidation(TETile[][] world) {
-        if (start.getX() == world.length - 1 || start.getX() == world[0].length - 1 ||
-        end.getX() == world.length - 1 || end.getX() == world[0].length - 1 ||
-        start.getY() == world.length - 1 || start.getY() == world[0].length - 1||
-                end.getY() == world.length - 1 || end.getY() == world[0].length - 1 ) {
+        if (start.getX() == world.length - 1 || start.getX() == world[0].length - 1
+                || end.getX() == world.length - 1 || end.getX() == world[0].length - 1
+                || start.getY() == world.length - 1 || start.getY() == world[0].length - 1
+                || end.getY() == world.length - 1 || end.getY() == world[0].length - 1) {
             return false;
         }
         return true;
@@ -38,7 +37,8 @@ public class Hallway {
 
 
     /** get the inner space of a Hallway instance
-     * @return a HashSet which contains all Position inside the Hallway except WALL (in other words, boundary)
+     * @return a HashSet which contains all Position inside the Hallway except WALL
+     * (in other words, boundary)
      * ***/
     public HashSet<Position> getInnerSpace() {
         HashSet<Position> innerSpace = new HashSet<>();
@@ -77,13 +77,13 @@ public class Hallway {
 
     @Override
     public String toString() {
-        return "Hallway{" +
-                "startX= " + start.getX() +
-                " startY= " + start.getY() +
-                " , endX= " + end.getX() +
-                " endX= " + end.getY() +
-                " , vertical=" + vertical +
-                " , horizontal=" + horizontal +
-                '}';
+        return "Hallway{"
+                 + "startX= " + start.getX()
+                + " startY= " + start.getY()
+                + " , endX= " + end.getX()
+                + " endX= " + end.getY()
+                + " , vertical=" + vertical
+                + " , horizontal=" + horizontal
+                + '}';
     }
 }

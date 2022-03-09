@@ -1,13 +1,9 @@
 package byow.Core;
 
-import byow.SaveDemo.Editor;
 import byow.TileEngine.TERenderer;
 import byow.TileEngine.TETile;
 import byow.TileEngine.Tileset;
-import edu.princeton.cs.introcs.StdDraw;
-import org.junit.Test;
 
-import java.awt.*;
 import java.io.*;
 import java.util.*;
 import java.util.List;
@@ -17,7 +13,7 @@ public class Engine {
     /* Feel free to change the width and height. */
     public static final int WIDTH = 80;
     public static final int HEIGHT = 30;
-    public static final int maxNumOfHallways = 4;
+    public static final int MAX_NUM_OF_HALLWAYS = 4;
     private boolean started;
     private boolean ended;
     private int seed;
@@ -53,47 +49,18 @@ public class Engine {
      * including inputs from the main menu.
      */
     public void interactWithKeyboard() {
-        TERenderer teRenderer = new TERenderer();
-        TETile[][] finalWorldFrame = null;
-        StringBuilder sb = new StringBuilder();
-        char prev = 0;
-        while (StdDraw.hasNextKeyTyped()) {
-            char c = Character.toLowerCase(StdDraw.nextKeyTyped());
-                if (c == 'n' ) {
-                    if (started) {
-                        continue;
-                    } else {
-                        start();
-                    }
-                }
-                if (c == ':') {
-                    continue;
-                }
-                if (c == 'q') {
-                    if (prev == ':') {
-                        end();
-                    }
-                }
-                if (c == 's') {
-                    if (Character.isDigit(prev) && started) {
-                        seed = Integer.parseInt(sb.toString());
-                        finalWorldFrame = generateNewWorld(seed);
-                    } else {
-                        moveAvatar(finalWorldFrame, 's');
-                    }
-                }
-                if (Character.isDigit(c) && started) {
-                    sb.append(c);
-                }
-                if (c == 'w' || c == 'a' || c == 'd') {
-                    moveAvatar(finalWorldFrame, c);
-                }
-                if (c == 'l') {
-                    loadStatus();
-                }
-            prev = c;
-            teRenderer.renderFrame(finalWorldFrame);
+        TETile[][] world = new TETile[WIDTH][HEIGHT];
+        for (int i = 0; i < WIDTH; i++) {
+            for (int j = 0; j < HEIGHT; j++) {
+                world[i][j] = Tileset.NOTHING;
+            }
         }
+        TERenderer teRenderer = new TERenderer();
+        teRenderer.initialize(WIDTH, HEIGHT);
+        KeyboardText st = new KeyboardText(WIDTH, HEIGHT);
+        st.initialize();
+        interactWithTextProcessor(st);
+        teRenderer.renderFrame(st.getWorld());
     }
 
     /**
@@ -118,89 +85,107 @@ public class Engine {
      * @return the 2D TETile[][] representing the state of the world
      */
     public TETile[][] interactWithInputString(String input) {
-        // TODO: Fill out this method so that it run the engine using the input
-        // passed in as an argument, and return a 2D tile representation of the
-        // world that would have been drawn if the same inputs had been given
-        // to interactWithKeyboard().
-        //
-        // See proj3.byow.InputDemo for a demo of how you can make a nice clean interface
-        // that works for many different input types.
-        TETile[][] finalWorldFrame = null;
-        StringInput si = new StringInput(input);
-//        si.initialize(WIDTH, HEIGHT);
-        while(si.hasNext()) {
-            if (si.shouldStart() && !started) {
-                start();
-                char nextChar = si.getNext();
-//                si.addChar(nextChar);
-                si.addActions(nextChar);
-//                prevStatus += si.getNext();
-            } else if (!started && si.shouldLoad()) {
-                loadStatus();
-            } else if (si.checkNextNumber() && started && !si.seedFinished() && !checkSeedExist()) {
-                char nextChar = si.getNext();
-//                si.addChar(nextChar);
-                si.addActions(nextChar);
-//                prevStatus += nextNumber;
-                si.addNumber(nextChar);
-                if (started && si.seedShouldFinish()) {
-                    seed = si.getSeed();
-                    si.getNext();
-                    finalWorldFrame = generateNewWorld(seed);
-                }
-            } else if (started && si.seedFinished()) {
-                char next = si.getNext();
-//                si.addChar(next);
-                si.addActions(next);
-                moveAvatar(finalWorldFrame, next);
-                //                    prevStatus += si.getNext();
-            } else if (si.shouldEnd()) {
-                end();
-            }
-        }
-
-
-        return finalWorldFrame;
+        StringText st = new StringText(input);
+        interactWithTextProcessor(st);
+        return st.getWorld();
     }
 
-    private void moveAvatar(TETile[][] world, char action) {
+
+    /***Define the general process when dealing with different chars
+     * @param st a TextProcessor*/
+    private void interactWithTextProcessor(SuperText st) {
+        while (st.hasNext()) {
+            char c = Character.toLowerCase(st.getNext());
+            if (c == 'n') {
+                if (st.isStarted()) {
+                    continue;
+                } else {
+                    st.start();
+                }
+            } else if (c == 'l') {
+                loadStatus();
+            } else if (c == 's') {
+                if (Character.isDigit(st.getPrevChar()) && st.noSeedExist() && st.isStarted()) {
+                    st.setSeed();
+                    seed = st.getSeed();
+                    st.setWorld(generateNewWorld(seed));
+                    st.setDoorPosition(getRandomInnerSpace());
+                    st.setPlayerPosition(getRandomInnerSpace());
+                } else if (!st.noSeedExist()) {
+                    st.move(c);
+                }
+            } else if (c == ':') {
+                continue;
+            } else if (c == 'q') {
+                if (st.getPrevChar() == ':') {
+                    saveStatus(st);
+                    System.exit(0);
+                }
+            } else if (Character.isDigit(c) && st.noSeedExist()) {
+                st.addNumber(c);
+            } else if (c == 'w' || c == 'a' || c == 'd') {
+                if (st.isStarted() && !st.noSeedExist()) {
+                    st.move(c);
+                }
+            }
+            st.setPrevChar(c);
+        }
+    }
+
+    /***Move avatar in a 2D grid according to the action and given player position
+     * @param world 2D TETile grid
+     * @param action char which represents the keyboard input
+     * @param playerPosition  current Position of the player
+     * @return the player position after this movement**/
+    public static Position moveAvatar(TETile[][] world, char action, Position playerPosition) {
+        Position newPosition;
         switch (action) {
             case 's':
-                if (validatePosition(world, playerPosition.moveDown(1))) {
-                    playerPosition = playerPosition.moveDown(1);
-                    drawAvatar(world, playerPosition, playerPosition.moveUp(1));
+                newPosition = playerPosition.moveDown(1);
+                if (validatePosition(world, newPosition)) {
+                    drawAvatar(world, newPosition, playerPosition);
+                    return newPosition;
                 }
+                break;
             case 'w' :
-                if (validatePosition(world, playerPosition.moveUp(1))) {
-                    playerPosition = playerPosition.moveUp(1);
-                    drawAvatar(world, playerPosition, playerPosition.moveDown(1));
+                newPosition = playerPosition.moveUp(1);
+                if (validatePosition(world, newPosition)) {
+                    drawAvatar(world, newPosition, playerPosition);
+                    return newPosition;
                 }
+                break;
             case 'a' :
-                if (validatePosition(world, playerPosition.moveLeft(1))) {
-                    playerPosition = playerPosition.moveLeft(1);
-                    drawAvatar(world, playerPosition, playerPosition.moveRight(1));
+                newPosition = playerPosition.moveLeft(1);
+                if (validatePosition(world, newPosition)) {
+                    drawAvatar(world, newPosition, playerPosition);
+                    return newPosition;
                 }
+                break;
             case 'd' :
-                if (validatePosition(world, playerPosition.moveRight(1))) {
-                    playerPosition = playerPosition.moveRight(1);
-                    drawAvatar(world, playerPosition, playerPosition.moveLeft(1));
+                newPosition = playerPosition.moveRight(1);
+                if (validatePosition(world, newPosition)) {
+                    drawAvatar(world, newPosition, playerPosition);
+                    return newPosition;
                 }
+                break;
             default:
                 drawAvatar(world, playerPosition, playerPosition);
+                return playerPosition;
         }
+        return playerPosition;
     }
 
     private static boolean validatePosition(TETile[][] world, Position p) {
-       return !world[p.getX()][p.getY()].equals(Tileset.WALL);
+        return !world[p.getX()][p.getY()].equals(Tileset.WALL);
     }
 
-    private static StringInput loadStatus() {
+    private static SuperText loadStatus() {
         File f = new File("./save_data.txt");
         if (f.exists()) {
             try {
                 FileInputStream fs = new FileInputStream(f);
                 ObjectInputStream os = new ObjectInputStream(fs);
-                return (StringInput) os.readObject();
+                return (SuperText) os.readObject();
             } catch (FileNotFoundException e) {
                 System.out.println("file not found");
                 System.exit(0);
@@ -214,10 +199,10 @@ public class Engine {
         }
 
         /* In the case no Editor has been saved yet, we return a new one. */
-        return new StringInput(" ");
+        return new StringText(" ");
     }
 
-    public void saveStatus(InputType it) {
+    public void saveStatus(TextProcessor it) {
         File f = new File("./save_data.txt");
         try {
             if (!f.exists()) {
@@ -236,19 +221,20 @@ public class Engine {
     }
 
     /*** Generate a new TETile 2D array.
-     * The basic idea is firstly generating random number of Room with random location and random size.
-     * Then for each of them choose another random Room instance and connect them with a Hallway.
+     * The basic idea is firstly generating random number of Room with random location
+     * and random size. Then for each of them choose another random Room instance and
+     * connect them with a Hallway.
      * Thus, each Room will have at least one Hallway and at most maxNumOfHallways.
      * For each Hallway, its start and end Position define its length. Its walls are built beside
-     * these two positions (left and right if vertical, up and down if horizontal). These two positions are
-     * drawn as WALL.
+     * these two positions (left and right if vertical, up and down if horizontal).
+     * These two positions are drawn as WALL.
      * After connecting all Room, we will draw Floor tile to cover the overlapped rooms or hallways.
-     * In other words, for a position, if it's inside a Room or a Hallway, it will be drawn as Floor instead of
-     * WALL or NOTHING.
-     * @param seed random integer seed
+     * In other words, for a position, if it's inside a Room or a Hallway, it will be drawn as Floor
+     * instead of WALL or NOTHING.
+     * @param i1 random integer seed
      * */
-    public TETile[][] generateNewWorld(int seed) {
-        Random r = new Random(seed);
+    public TETile[][] generateNewWorld(int i1) {
+        Random r = new Random(i1);
         int width = WIDTH;
         int height = HEIGHT;
         TETile[][] world = new TETile[width][height];
@@ -270,16 +256,13 @@ public class Engine {
             }
         }
         coverOverlapWallWithFloor(world);
-        playerPosition = getRandomInnerSpace();
-        drawAvatar(world, playerPosition, playerPosition);
-        doorPosition = getRandomInnerSpace();
-        drawDoor(world, doorPosition);
         worldGenerated = true;
         return world;
     }
 
 
-   /** Cover the grid with floor tile if this position belongs to an inner space of a room or hallway
+   /** Cover the grid with floor tile if this position belongs to an inner space of a room
+    * or hallway
     * @param world 2D TETile array
     * **/
     private void coverOverlapWallWithFloor(TETile[][] world) {
@@ -294,7 +277,7 @@ public class Engine {
      * */
     private void generateNewRoom(TETile[][] world, Random r) {
         Room newRoom = new Room(r, new Position(r.nextInt(WIDTH), r.nextInt(HEIGHT)),
-                RandomUtils.uniform(r, 4, WIDTH/5), RandomUtils.uniform(r, 4, HEIGHT/5));
+                RandomUtils.uniform(r, 4, WIDTH / 5), RandomUtils.uniform(r, 4, HEIGHT / 5));
         if (newRoom.checkSelfValidation()) {
             addNewRoomToWorld(world, newRoom);
 //            System.out.println(newRoom.toString());
@@ -304,13 +287,15 @@ public class Engine {
     /** Generate a pair of hallway connecting to rooms
      * @param r a Random instance
      * @param world 2D TETile array
-     * @param rooms list of rooms
+     * @param roomList list of rooms
      * @param startRoom one decided Room instance
      * **/
-    private void generateNewPairOfHallway(TETile[][] world, Room startRoom, List<Room> rooms, Random r) {
-        Room targetRoom = rooms.get(r.nextInt(rooms.size() - 1));
+    private void generateNewPairOfHallway(TETile[][] world, Room startRoom, List<Room> roomList,
+                                          Random r) {
+        Room targetRoom = roomList.get(r.nextInt(roomList.size() - 1));
         if (!targetRoom.equals(startRoom)) {
-            if (hallwayCntOfRoom.get(startRoom) < maxNumOfHallways && hallwayCntOfRoom.get(targetRoom) < maxNumOfHallways) {
+            if (hallwayCntOfRoom.get(startRoom) < MAX_NUM_OF_HALLWAYS
+                    && hallwayCntOfRoom.get(targetRoom) < MAX_NUM_OF_HALLWAYS) {
                 Position selectedStart = startRoom.getInnerSpace().iterator().next();
                 Position selectedEnd = targetRoom.getInnerSpace().iterator().next();
                 Position corner = new Position(selectedStart.getX(), selectedEnd.getY());
@@ -368,7 +353,7 @@ public class Engine {
      * @param hallway a Hallway instance
      * */
     private boolean addNewHallway(TETile[][] world, Hallway hallway) {
-        boolean valid = hallway.checkSelfValidation() && hallway.checkWorldValidation(world) ;
+        boolean valid = hallway.checkSelfValidation() && hallway.checkWorldValidation(world);
         if (valid) {
 //            System.out.println(hallway.toString());
             drawHallway(world, hallway);
@@ -389,14 +374,12 @@ public class Engine {
             drawSingleWall(world, hallway.getStart().moveRight(1), hallway.getEnd().moveRight(1));
             drawSingleBlock(world, hallway.getStart());
             drawSingleBlock(world, hallway.getEnd());
-        }
-        else if (hallway.isHorizontal()) {
+        } else if (hallway.isHorizontal()) {
             drawSingleWall(world, hallway.getStart().moveUp(1), hallway.getEnd().moveUp(1));
             drawSingleWall(world, hallway.getStart().moveDown(1), hallway.getEnd().moveDown(1));
             drawSingleBlock(world, hallway.getStart());
             drawSingleBlock(world, hallway.getEnd());
-        }
-        else {
+        } else {
             throw new RuntimeException(" not a valid hallway");
         }
 
@@ -416,8 +399,7 @@ public class Engine {
             for (int i = realStartX; i <= realEndX; i++) {
                 world[i][start.getY()] = Tileset.WALL;
             }
-        }
-        else if (start.getX() == end.getX()) {
+        } else if (start.getX() == end.getX()) {
             int realStartY = Math.min(start.getY(), end.getY());
             int realEndY = Math.max(start.getY(), end.getY());
             for (int i = realStartY; i <= realEndY; i++) {
@@ -429,20 +411,20 @@ public class Engine {
         }
     }
 
-    private void drawSingleBlock(TETile[][] world, Position p) {
+    public static void drawSingleBlock(TETile[][] world, Position p) {
         world[p.getX()][p.getY()] = Tileset.WALL;
     }
 
-    private void drawSingleFloor(TETile[][] world, Position p) {
+    public static void drawSingleFloor(TETile[][] world, Position p) {
         world[p.getX()][p.getY()] = Tileset.FLOOR;
     }
 
-    private void drawAvatar(TETile[][] world, Position p, Position prev) {
+    public static void drawAvatar(TETile[][] world, Position p, Position prev) {
         world[prev.getX()][prev.getY()] = Tileset.FLOOR;
         world[p.getX()][p.getY()] = Tileset.AVATAR;
     }
 
-    private void drawDoor(TETile[][] world, Position p) {
+    public static void drawDoor(TETile[][] world, Position p) {
         world[p.getX()][p.getY()] = Tileset.UNLOCKED_DOOR;
     }
 
@@ -450,30 +432,12 @@ public class Engine {
         return floors.iterator().next();
     }
 
-    public void start() {
-        started = true;
-    }
-
-    public void end() {
-        ended = true;
-        System.exit(0);
-    }
-
-    public boolean ifEnd() {
-        return ended;
-    }
-
-
-    public boolean checkSeedExist() {
-        return seed != 0;
-    }
-
 
     public static void main(String[] args) {
         renderStringInput();
     }
 
-    public static void renderNewWorld(){
+    public static void renderNewWorld() {
         Engine e = new Engine();
         TERenderer ter = new TERenderer();
         ter.initialize(WIDTH, HEIGHT);
@@ -491,8 +455,8 @@ public class Engine {
                 world[i][j] = Tileset.NOTHING;
             }
         }
-        Hallway test = new Hallway(new Position(20,10), new Position(10,10));
-        Hallway test2 = new Hallway(new Position(20,6), new Position(10,6));
+        Hallway test = new Hallway(new Position(20, 10), new Position(10, 10));
+        Hallway test2 = new Hallway(new Position(20, 6), new Position(10, 6));
         e.addNewHallway(world, test);
         e.addNewHallway(world, test2);
         e.coverOverlapWallWithFloor(world);
@@ -510,8 +474,13 @@ public class Engine {
                 world[i][j] = Tileset.NOTHING;
             }
         }
-        world = e.interactWithInputString("N123SSWWWS:Q");
+        world = e.interactWithInputString("N123SSWWWSAAAWW:Q");
         ter.renderFrame(world);
 
+    }
+
+    public static void renderKeyboardInput() {
+        Engine e = new Engine();
+        e.interactWithKeyboard();
     }
 }
